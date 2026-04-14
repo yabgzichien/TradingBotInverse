@@ -514,24 +514,25 @@ def run_backtest(
                         sl_reachable = False
                         tp_reachable = False
                         
+                        bar_c = row['close']
                         if position_type == 1:
                             sl_hit = bar_l <= sl_price
                             tp_hit = bar_h >= tp_price
                             if trigger_path_first == bar_l:
                                 sl_reachable = sl_hit
-                                tp_reachable = tp_hit and (path_first == bar_l or bar_o <= pending_entry)
+                                tp_reachable = tp_hit and (path_first == bar_l or bar_o <= pending_entry or bar_c >= tp_price)
                             else:
-                                sl_reachable = sl_hit and (path_first == bar_h or bar_o >= pending_entry)
+                                sl_reachable = sl_hit and (path_first == bar_h or bar_o >= pending_entry or bar_c <= sl_price)
                                 tp_reachable = tp_hit
                         else:  # Short
                             sl_hit = bar_h >= sl_price
                             tp_hit = bar_l <= tp_price
                             if trigger_path_first == bar_l:
-                                sl_reachable = sl_hit and (path_first == bar_l or bar_o <= pending_entry)
+                                sl_reachable = sl_hit and (path_first == bar_l or bar_o <= pending_entry or bar_c >= sl_price)
                                 tp_reachable = tp_hit
                             else:
                                 sl_reachable = sl_hit
-                                tp_reachable = tp_hit and (path_first == bar_h or bar_o >= pending_entry)
+                                tp_reachable = tp_hit and (path_first == bar_h or bar_o >= pending_entry or bar_c <= tp_price)
 
                         if not allow_entry_bar_tp:
                             tp_reachable = False

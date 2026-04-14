@@ -47,7 +47,7 @@ ETF               = "M15"
 INITIAL_BALANCE   = 10_000.0
 RISK_PER_TRADE    = 0.01          # 1% fixed risk
 LOOKBACK_DAYS     = 365
-MC_SIMS           = 500
+MC_SIMS           = 300
 
 # Walk-Forward windows
 TRAIN_MONTHS      = 5

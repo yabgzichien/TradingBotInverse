@@ -14,7 +14,7 @@ class BridgeConfig:
     symbols: tuple[str, ...] = ("BTCUSD", "XAUUSD")
     anchor_tf: str = "H4"
     execution_tf: str = "M15"
-    poll_interval_sec: int = 60
+    poll_interval_sec: int = 15
     bars_limit: int = 1200
     risk_base_balance_usd: float = 10000.0
     risk_per_trade_pct: float = 0.01
@@ -27,6 +27,7 @@ class BridgeConfig:
     sweep_mode: str = "prev_bar"
     internal_structure_lookback_bars: int = 1
     max_bos_wait_bars: int = 8
+    invert_signals: bool = True
 
 
 LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ea_bridge.log")
@@ -89,25 +90,27 @@ def _ensure_commands_file():
 def _read_rates_csv(path: str) -> pd.DataFrame:
     if not os.path.exists(path):
         return pd.DataFrame()
-    encodings = []
+    
+    # Try common encodings for MT5/CSV files
+    encodings = ["utf-16", "utf-8-sig", "utf-8", "cp1252"]
+    
+    # Peek at the file to prioritize UTF-16 if BOM is present
     try:
         with open(path, "rb") as f:
             head = f.read(4)
         if head.startswith(b"\xff\xfe") or head.startswith(b"\xfe\xff"):
-            encodings.append("utf-16")
-        elif head.startswith(b"\xef\xbb\xbf"):
-            encodings.append("utf-8-sig")
+            # Move utf-16 to front if detected
+            encodings.insert(0, encodings.pop(encodings.index("utf-16")))
     except Exception:
         pass
-    encodings.extend(["utf-8", "utf-8-sig", "utf-16", "cp1252"])
 
     df = None
     last_err = None
     for attempt in range(5):
         for enc in encodings:
             try:
-                # Use faster 'c' engine and explicit comma separator
-                df = pd.read_csv(path, encoding=enc, sep=',', engine='c', low_memory=False)
+                # Use sep=None and engine='python' to auto-detect tab vs comma
+                df = pd.read_csv(path, encoding=enc, sep=None, engine='python', on_bad_lines='skip')
                 last_err = None
                 break
             except (UnicodeDecodeError, pd.errors.ParserError) as e:
@@ -123,26 +126,36 @@ def _read_rates_csv(path: str) -> pd.DataFrame:
             break
         
         _log(f"File access delay for {os.path.basename(path)} (attempt {attempt+1}/5): {last_err}")
-        time.sleep(0.5) # Increased sleep to give MT5 more time to release the lock
+        time.sleep(0.5) 
     
     if df is None:
         if last_err is not None:
             _log(f"Warning: Could not read {path} after 5 attempts: {last_err}")
         return pd.DataFrame()
+    
     if df.empty:
         return df
+        
+    # Standardize column names (MT5 sometimes exports with capitalized headers)
+    df.columns = [c.lower() for c in df.columns]
+
     if "time" not in df.columns:
+        _log(f"Warning: 'time' column missing in {os.path.basename(path)}. Columns found: {list(df.columns)}")
         return pd.DataFrame()
+        
     if pd.api.types.is_numeric_dtype(df["time"]):
         df["time"] = pd.to_datetime(df["time"], unit="s", utc=True, errors="coerce")
     else:
         df["time"] = pd.to_datetime(df["time"], utc=True, errors="coerce")
+    
     df = df.dropna(subset=["time"]).set_index("time").sort_index()
     cols = ["open", "high", "low", "close"]
     for c in cols:
         if c not in df.columns:
+            _log(f"Warning: column '{c}' missing in {os.path.basename(path)}")
             return pd.DataFrame()
         df[c] = pd.to_numeric(df[c], errors="coerce")
+    
     df = df.dropna(subset=cols)
     return df
 
@@ -325,15 +338,24 @@ def run_bridge(config: BridgeConfig):
             set_last_bos(symbol, bos_time)
             last_sent_setup[symbol] = setup_id
 
+            opened_dir = setup_dir
+            sl_level_target = sl
+            tp_level_target = tp
+            
+            if config.invert_signals:
+                opened_dir = -setup_dir
+                sl_level_target = tp
+                tp_level_target = sl
+
             risk_usd = float(config.risk_base_balance_usd) * float(config.risk_per_trade_pct)
             cmd = {
                 "ts": cycle_ts,
                 "symbol": symbol,
                 "cmd": "PLACE_LIMIT",
-                "dir": str(1 if setup_dir == 1 else -1),
+                "dir": str(1 if opened_dir == 1 else -1),
                 "entry": f"{entry:.10f}",
-                "sl": f"{sl:.10f}",
-                "tp": f"{tp:.10f}",
+                "sl": f"{sl_level_target:.10f}",
+                "tp": f"{tp_level_target:.10f}",
                 "risk_usd": f"{risk_usd:.2f}",
                 "magic": str(config.magic),
                 "replace_tol_points": str(config.replace_tol_points),

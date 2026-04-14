@@ -4,7 +4,7 @@ input string InpSymbols = "BTCUSD,XAUUSD";
 input ENUM_TIMEFRAMES InpAnchorTF = PERIOD_H4;
 input ENUM_TIMEFRAMES InpExecutionTF = PERIOD_M15;
 input int InpExportBars = 1500;
-input int InpTimerSec = 60;
+input int InpTimerSec = 15;
 
 string _symbols[];
 
@@ -99,7 +99,7 @@ bool _cancel_all_pending(string symbol, long magic)
       if(OrderGetString(ORDER_SYMBOL) != symbol) continue;
       if((long)OrderGetInteger(ORDER_MAGIC) != magic) continue;
       ENUM_ORDER_TYPE type = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
-      if(type != ORDER_TYPE_BUY_LIMIT && type != ORDER_TYPE_SELL_LIMIT) continue;
+      if(type != ORDER_TYPE_BUY_LIMIT && type != ORDER_TYPE_SELL_LIMIT && type != ORDER_TYPE_BUY_STOP && type != ORDER_TYPE_SELL_STOP) continue;
 
       MqlTradeRequest req;
       MqlTradeResult res;
@@ -140,7 +140,16 @@ bool _place_limit(string symbol, long magic, int dir, double entry, double sl, d
    int digits = (int)SymbolInfoInteger(symbol, SYMBOL_DIGITS);
    double tol = replace_tol_points * point;
 
-   int desired_type = (dir == 1) ? ORDER_TYPE_BUY_LIMIT : ORDER_TYPE_SELL_LIMIT;
+   double current_price = (dir == 1) ? SymbolInfoDouble(symbol, SYMBOL_ASK) : SymbolInfoDouble(symbol, SYMBOL_BID);
+   int desired_type;
+   if(dir == 1) {
+      if(entry > current_price) desired_type = ORDER_TYPE_BUY_STOP;
+      else desired_type = ORDER_TYPE_BUY_LIMIT;
+   } else {
+      if(entry < current_price) desired_type = ORDER_TYPE_SELL_STOP;
+      else desired_type = ORDER_TYPE_SELL_LIMIT;
+   }
+
    if(_has_equivalent_pending(symbol, magic, desired_type, entry, sl, tp, tol))
       return true;
 
@@ -153,7 +162,10 @@ bool _place_limit(string symbol, long magic, int dir, double entry, double sl, d
 
    if(dir == 1)
    {
-      if(!(sl < entry && entry < tp)) return false;
+      if(!(sl < entry && entry < tp)) {
+         PrintFormat("Validation failed (BUY): sl(%.5f) < entry(%.5f) < tp(%.5f) is FALSE", sl, entry, tp);
+         return false;
+      }
       if(min_stop_dist > 0.0)
       {
          if((entry - sl) < min_stop_dist) sl = entry - min_stop_dist;
@@ -162,7 +174,10 @@ bool _place_limit(string symbol, long magic, int dir, double entry, double sl, d
    }
    else
    {
-      if(!(tp < entry && entry < sl)) return false;
+      if(!(tp < entry && entry < sl)) {
+         PrintFormat("Validation failed (SELL): tp(%.5f) < entry(%.5f) < sl(%.5f) is FALSE", tp, entry, sl);
+         return false;
+      }
       if(min_stop_dist > 0.0)
       {
          if((sl - entry) < min_stop_dist) sl = entry + min_stop_dist;
@@ -191,6 +206,11 @@ bool _place_limit(string symbol, long magic, int dir, double entry, double sl, d
    req.type_filling = ORDER_FILLING_RETURN;
 
    bool ok = OrderSend(req, res);
+   if (!ok) {
+       PrintFormat("OrderSend failed for %s. Retcode: %d. Error: %d", symbol, res.retcode, GetLastError());
+   } else {
+       PrintFormat("OrderSend SUCCESS for %s. Ticket: %d", symbol, res.order);
+   }
    return ok && (res.retcode == TRADE_RETCODE_DONE || res.retcode == TRADE_RETCODE_PLACED);
 }
 
@@ -264,6 +284,7 @@ void _process_commands()
          double tp = StringToDouble(tp_s);
          double risk = StringToDouble(risk_s);
          double tol_points = StringToDouble(tol_s);
+         PrintFormat("Processing PLACE_LIMIT for %s dir=%d entry=%.5f sl=%.5f tp=%.5f", symbol, dir, entry, sl, tp);
          _place_limit(symbol, magic, dir, entry, sl, tp, risk, tol_points);
       }
    }
