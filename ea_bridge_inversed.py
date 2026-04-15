@@ -81,7 +81,7 @@ def _ensure_commands_file():
         "client_tag",
     ]
     with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w = csv.DictWriter(f, fieldnames=fieldnames, delimiter=',')
         w.writeheader()
     _log(f"Commands file created: {path}")
 
@@ -179,7 +179,7 @@ def _append_command(row: dict):
         "client_tag",
     ]
     with open(path, "a", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=fieldnames)
+        w = csv.DictWriter(f, fieldnames=fieldnames, delimiter=',')
         if not exists:
             w.writeheader()
         w.writerow(row)

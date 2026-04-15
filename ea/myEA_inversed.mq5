@@ -228,8 +228,10 @@ void _gv_set_last_line(long v)
 
 void _process_commands()
 {
-   int handle = FileOpen(_commands_file(), FILE_READ|FILE_CSV|FILE_COMMON);
+   int handle = FileOpen(_commands_file(), FILE_READ|FILE_CSV|FILE_ANSI|FILE_COMMON|FILE_SHARE_READ|FILE_SHARE_WRITE, ',');
    if(handle == INVALID_HANDLE) return;
+
+   if(FileSize(handle) < 200) _gv_set_last_line(0);
 
    long last_line = _gv_last_line();
    long line_no = 0;
