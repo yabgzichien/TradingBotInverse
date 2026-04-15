@@ -46,7 +46,7 @@ HTF               = "H4"
 ETF               = "M15"
 INITIAL_BALANCE   = 10_000.0
 RISK_PER_TRADE    = 0.01          # 1% fixed risk
-LOOKBACK_DAYS     = 365
+LOOKBACK_DAYS     = 2 * 365
 MC_SIMS           = 300
 
 # Walk-Forward windows
@@ -59,9 +59,9 @@ ETF_WARMUP_DAYS   = 4
 
 # Strategy parameter search space  (4 × 3 × 3 × 3 = 108 combos)
 FIB_LEVELS            = [0.5, 0.618, 0.7, 0.786]
-HTF_SWING_WINDOWS     = [5, 7, 10]
-LOOKBACK_BARS_LIST    = [1, 3, 5]
-BOS_WAIT_BARS_LIST    = [4, 8, 12]
+HTF_SWING_WINDOWS     = [5, 7, 10, 13]
+LOOKBACK_BARS_LIST    = [1, 3, 5, 7]
+BOS_WAIT_BARS_LIST    = [4, 8, 12, 16]
 
 OUTPUT_DIR = os.path.join("backtest_results", "mc_optimization")
 

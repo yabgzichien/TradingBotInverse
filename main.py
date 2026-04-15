@@ -132,7 +132,6 @@ def main():
         strategy_df = strategy_df[strategy_df.index >= pd.Timestamp(etf_start)]
         
         # Save a sample of the data to verify
-        import os
         os.makedirs("backtest_results", exist_ok=True)
         strategy_df.tail(100).to_csv(f"backtest_results/strategy_data_tail_{symbol}.csv")
         

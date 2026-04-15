@@ -769,6 +769,12 @@ def run_backtest(
                 prop_firm_fails += 1
                 current_baseline = val  # Reset baseline after failure
         
+        # Benchmark: Buy and Hold (Always Long from first close to last close)
+        first_price = df.iloc[0]['close']
+        last_price_close = df.iloc[-1]['close']
+        bh_return_pct = (last_price_close - first_price) / first_price
+        bot_vs_bh = total_return_pct - bh_return_pct
+
         print("\n--- Backtest Results ---")
         print(f"Total Trades: {total_trades}")
         print(f"Long Trades: {long_trades}")
@@ -778,6 +784,8 @@ def run_backtest(
         print(f"Total PnL: ${total_pnl:.2f}")
         print(f"Average Trade Duration: {avg_trade_duration}")
         print(f"Total Return: {total_return_pct:.2%}")
+        print(f"Buy and Hold Return: {bh_return_pct:.2%}")
+        print(f"Bot vs Buy & Hold: {bot_vs_bh:+.2%}")
         print(f"Max Drawdown: {max_drawdown:.2%}")
         print(f"Sharpe Ratio: {sharpe_ratio:.2f}")
         print(f"Ann. Std Dev: {annualized_std:.2%}")

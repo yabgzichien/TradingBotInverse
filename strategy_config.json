@@ -1,6 +1,6 @@
 {
     "fib_level": 0.5,
-    "htf_swing_window": 10,
-    "lookback_bars": 5,
-    "bos_wait_bars": 12
+    "htf_swing_window": 13,
+    "lookback_bars": 1,
+    "bos_wait_bars": 8
 }
