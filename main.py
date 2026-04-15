@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 import pandas as pd
 import pytz
 import MetaTrader5 as mt5
+import json
+import os
 
 def main():
     if not initialize_mt5():
@@ -73,9 +75,21 @@ def main():
                 
     want_replay = input("Generate Animated Visual Replay (Interactive Charting)? (y/n) [default n]: ").strip().lower() == 'y'
     
+    # Load strategy configuration
+    config_path = "strategy_config.json"
+    strat_cfg = {"fib_level": 0.618, "htf_swing_window": 7, "lookback_bars": 1, "bos_wait_bars": 8}
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r") as f:
+                strat_cfg = json.load(f)
+            print(f"\nLoaded strategy config: {strat_cfg}")
+        except Exception as e:
+            print(f"\nError loading {config_path}: {e}")
+    else:
+        print("\nstrategy_config.json not found, using default parameters.")
+
     anchor_tf = "H4"
     etf = "M15"
-    entry_retracement = 0.618
     htf_warmup_days = 60  # Extra lookback so H4 swings/trend are fully initialised
     etf_warmup_candles = 360  # 15M warmup candles (360 × 15min = 3.75 days)
 
@@ -106,12 +120,12 @@ def main():
         strategy_df = generate_signals_refined(
             htf_data,
             etf_data,
-            anchor_swing_window=7,
+            anchor_swing_window=strat_cfg.get("htf_swing_window", 7),
             execution_swing_window=1,
-            entry_retracement=entry_retracement,
+            entry_retracement=strat_cfg.get("fib_level", 0.618),
             sweep_mode="prev_bar",
-            internal_structure_lookback_bars=1,
-            max_bos_wait_bars=8
+            internal_structure_lookback_bars=strat_cfg.get("lookback_bars", 1),
+            max_bos_wait_bars=strat_cfg.get("bos_wait_bars", 8)
         )
 
         # Trim warmup: only keep rows from the actual backtest start onwards

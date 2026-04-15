@@ -92,6 +92,7 @@ def _silent_backtest(strategy_df, symbol: str) -> pd.DataFrame:
             point_value=point_value,
             symbol=symbol,
             save_csv=False,
+            invert_signals=True,
         )
     finally:
         sys.stdout = old_stdout
@@ -127,8 +128,15 @@ def compute_metrics(trades_df: pd.DataFrame) -> dict | None:
     total_return_pct = (balance - INITIAL_BALANCE) / INITIAL_BALANCE
 
     # Annualised return
+    # Guard against negative balance: a negative base raised to a fractional
+    # exponent produces a complex number in NumPy, which poisons downstream
+    # DataFrame operations (nlargest / nsmallest raise TypeError: complex128).
     span_days = max((eq_df.index[-1] - eq_df.index[0]).days, 1)
-    ann_return = (balance / INITIAL_BALANCE) ** (365 / span_days) - 1
+    balance_ratio = balance / INITIAL_BALANCE
+    if balance_ratio <= 0:
+        ann_return = -1.0   # treat as total loss
+    else:
+        ann_return = float(balance_ratio ** (365 / span_days) - 1)
 
     # Sharpe
     daily = eq_df["equity"].resample("D").last().dropna()
@@ -202,14 +210,20 @@ def run_monte_carlo(trades_df: pd.DataFrame, n_sims: int = MC_SIMS) -> dict | No
 
 # ── Composite Score ────────────────────────────────────────────────────────────
 def composite_score(row: dict) -> float:
-    sharpe      = row.get("sharpe_ratio", 0) or 0
-    prob_profit = row.get("mc_prob_profit", 0) or 0
-    ann_ret     = row.get("annual_return_pct", 0) or 0
-    p5_ret      = row.get("mc_p5_return", 0) or 0
-    prop_passes = row.get("prop_firm_passes", 0) or 0
-    max_dd      = abs(row.get("max_drawdown_pct", 0) or 0)
+    def _real(v, default=0):
+        """Return the real part of v (guards against accidental complex values)."""
+        val = v if v is not None else default
+        val = val or default
+        return float(np.real(val))
 
-    return (
+    sharpe      = _real(row.get("sharpe_ratio"))
+    prob_profit = _real(row.get("mc_prob_profit"))
+    ann_ret     = _real(row.get("annual_return_pct"))
+    p5_ret      = _real(row.get("mc_p5_return"))
+    prop_passes = _real(row.get("prop_firm_passes"))
+    max_dd      = abs(_real(row.get("max_drawdown_pct")))
+
+    return float(
         sharpe      * 0.30
         + prob_profit * 0.25
         + ann_ret     * 0.20

@@ -1,6 +1,7 @@
 import os
 import time
 import csv
+import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -8,6 +9,18 @@ import pandas as pd
 
 from strategy import generate_signals_refined
 
+
+def _load_strat_cfg():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "strategy_config.json")
+    if os.path.exists(path):
+        try:
+            with open(path, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"[Config Error] Failed to load {path}: {e}")
+    return {}
+
+_strat_cfg = _load_strat_cfg()
 
 @dataclass(frozen=True)
 class BridgeConfig:
@@ -21,12 +34,12 @@ class BridgeConfig:
     magic: int = 1001001
     replace_tol_points: float = 10.0
     max_pending_bars: int = 96
-    anchor_swing_window: int = 7
+    anchor_swing_window: int = _strat_cfg.get("htf_swing_window", 7)
     execution_swing_window: int = 1
-    entry_retracement: float = 0.618
+    entry_retracement: float = _strat_cfg.get("fib_level", 0.618)
     sweep_mode: str = "prev_bar"
-    internal_structure_lookback_bars: int = 1
-    max_bos_wait_bars: int = 8
+    internal_structure_lookback_bars: int = _strat_cfg.get("lookback_bars", 1)
+    max_bos_wait_bars: int = _strat_cfg.get("bos_wait_bars", 8)
     invert_signals: bool = True
 
 
