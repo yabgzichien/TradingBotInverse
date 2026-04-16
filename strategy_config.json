@@ -2,5 +2,6 @@
     "fib_level": 0.5,
     "htf_swing_window": 13,
     "lookback_bars": 1,
-    "bos_wait_bars": 8
+    "bos_wait_bars": 8,
+    "run_monte_carlo": false
 }

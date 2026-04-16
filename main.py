@@ -165,18 +165,14 @@ def main():
             trades_df['symbol'] = symbol
             all_trades_dfs.append(trades_df)
 
-        print("Creating Trade Plot...")
-        plot_results(strategy_df, trades_df, symbol)
-
-        # Monte Carlo simulation on trade PnLs
-        print(f"Running Monte Carlo simulation for {symbol}...")
-        final_balances = monte_carlo_simulation(trades_df, initial_balance=10000.0, n_sims=1000)
-        # Note: If running many pairs, overriding monte carlo plot might hide earlier ones.
-        # Plot distribution uses default name, which might overwrite. We will just plot it.
-        try:
-            plot_return_distribution(final_balances, initial_balance=10000.0, output_file=f"monte_carlo_returns_{symbol}.png")
-        except Exception as e:
-            print(f"Monte Carlo plot skipped: {e}")
+        if strat_cfg.get("run_monte_carlo", False):
+            # Monte Carlo simulation on trade PnLs
+            print(f"Running Monte Carlo simulation for {symbol}...")
+            final_balances = monte_carlo_simulation(trades_df, initial_balance=10000.0, n_sims=1000)
+            try:
+                plot_return_distribution(final_balances, initial_balance=10000.0, output_file=f"monte_carlo_returns_{symbol}.png")
+            except Exception as e:
+                print(f"Monte Carlo plot skipped: {e}")
 
     # Final combined statistics
     if len(target_symbols) > 1 and all_trades_dfs:
